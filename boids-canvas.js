@@ -1,4 +1,3 @@
-//-----------------------------------------------------------------------------------------------
 var Vector = function(x, y) { this.x = x === 'undefined' ? 0 : x; this.y = y === 'undefined' ? 0 : y; };
 Vector.prototype.add = function(v) { return new Vector(this.x + v.x, this.y + v.y); };
 Vector.prototype.sub = function(v) { return new Vector(this.x - v.x, this.y - v.y); };
@@ -145,7 +144,6 @@ Boid.prototype.applyForce = function(force) {
   this.acceleration = this.acceleration.add(force.div(new Vector(this.size, this.size)));
 };
 //-----------------------------------------------------------------------------------------------
-// BOIDS CANVAS CLASS
 var BoidsCanvas = function(canvas, options) {
   this.canvasDiv = canvas;
   this.canvasDiv.size = {
@@ -170,47 +168,27 @@ var BoidsCanvas = function(canvas, options) {
   this.init();
 };
 BoidsCanvas.prototype.init = function() {
-  // Create background div
   this.bgDiv = document.createElement('div');
   this.canvasDiv.appendChild(this.bgDiv);
-  this.setStyles(this.bgDiv, {
-    'position': 'absolute',
-    'top': 0,
-    'left': 0,
-    'bottom': 0,
-    'right': 0,
-    'z-index': 1
-  });
-  // Check if valid background hex color
+  this.setStyles(this.bgDiv, { 'position': 'absolute', 'top': 0, 'left': 0, 'bottom': 0, 'right': 0, 'z-index': 1 });
   if ((/(^#[0-9A-F]{6}$)|(^#[0-9A-F]{3}$)/i).test(this.options.background)) {
-    this.setStyles(this.bgDiv, {
-      'background': this.options.background
-    });
-  }
-  // Else check if valid image
-  else if ((/\.(gif|jpg|jpeg|tiff|png)$/i).test(this.options.background)) {
+    this.setStyles(this.bgDiv, { 'background': this.options.background });
+  } else if ((/\.(gif|jpg|jpeg|tiff|png)$/i).test(this.options.background)) {
     this.setStyles(this.bgDiv, {
       'background': 'url("' + this.options.background + '") no-repeat center',
       'background-size': 'cover'
     });
-  }
-  // Else throw error
-  else {
+  } else {
     console.error('Please specify a valid background image or hexadecimal color');
     return false;
   }
-  // Create canvas & context
   this.canvas = document.createElement('canvas');
   this.canvasDiv.appendChild(this.canvas);
   this.ctx = this.canvas.getContext('2d');
   this.canvas.width = this.canvasDiv.size.width;
   this.canvas.height = this.canvasDiv.size.height;
   this.setStyles(this.canvasDiv, { 'position': 'relative' });
-  this.setStyles(this.canvas, {
-    'z-index': '20',
-    'position': 'relative'
-  });
-  // Add resize listener to canvas
+  this.setStyles(this.canvas, { 'z-index': '20', 'position': 'relative' });
   window.addEventListener('resize', () => {
     if (this.canvasDiv.offsetWidth === this.canvasDiv.size.width && this.canvasDiv.offsetHeight === this.canvasDiv.size.height) { return false; }
     this.canvas.width = this.canvasDiv.size.width = this.canvasDiv.offsetWidth;
@@ -240,7 +218,6 @@ BoidsCanvas.prototype.init = function() {
   this.canvas.addEventListener('mouseleave', function (e) { this.mousePos = undefined; }.bind(this));
   requestAnimationFrame(this.update.bind(this));
 };
-
 // Initialise boids according to options
 BoidsCanvas.prototype.initialiseBoids = function() {
   this.boids = [];
@@ -259,19 +236,15 @@ BoidsCanvas.prototype.initialiseBoids = function() {
   }
 };
 BoidsCanvas.prototype.update = function() {
-  // Clear canvas
   this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   this.ctx.globalAlpha = 1;
-  // Update and draw boids
   for (var i = 0; i < this.boids.length; i++) {
     this.boids[i].update();
     this.boids[i].draw();
   }
-  // Request next frame
   requestAnimationFrame(this.update.bind(this));
 };
 BoidsCanvas.prototype.setSpeed = (speed) => ({ slow: 1, medium: 2, fast: 3 }[speed]);
-// Helper method to set multiple styles
 BoidsCanvas.prototype.setStyles = function (div, styles) {
   for (var property in styles) {
     div.style[property] = styles[property];
