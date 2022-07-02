@@ -1,3 +1,13 @@
+# how to set up
+
+git clone...
+xdg-open demo.html
+to create a new min.js file, just type
+
+    grunt
+
+in the command line
+
 # BoidsCanvas
 [![NPM version](https://img.shields.io/npm/v/boids-canvas.svg)](https://www.npmjs.com/package/boids-canvas)
 [![Bower version](https://img.shields.io/bower/v/boids-canvas.svg)](https://github.com/MikeC1995/BoidsCanvas)
