@@ -27,11 +27,13 @@ Boid.prototype.draw = function () {
 Boid.prototype.update = function () {
   var v1 = this.cohesion()     .mul(new Vector(1, 1));
   var v2 = this.separation()   .mul(new Vector(this.parent.options.separationVar, this.parent.options.separationVar));
+  var v2a = this.avoidTables() .mul(new Vector(18, 18));
   var v3 = this.alignment()    .mul(new Vector(1, 1));
   var v4 = this.interactivity().mul(new Vector(1.8, 1.8));
   var v5 = this.borders()      .mul(new Vector(5.0, 5.0));
   this.applyForce(v1);
   this.applyForce(v2);
+  this.applyForce(v2a);
   this.applyForce(v3);
   this.applyForce(v4);
   this.applyForce(v5);
@@ -84,6 +86,32 @@ Boid.prototype.separation = function () { // Separation rule: steer to avoid cro
   }
   return steer;
 };
+///////////////////////////////////////////
+Boid.prototype.avoidTables = function () {
+  var steer = new Vector(0, 0);
+  var count = 0;
+  for(var i = 0; i < this.parent.tables.length; i++) {
+    var d = this.position.dist(this.parent.tables[i].position);
+    if(d > 0 && d < 15) {
+      var diff = this.position
+        .sub(this.parent.tables[i].position)
+        .normalise()
+        .div(new Vector(d, d));
+      steer = steer.add(diff);
+      count++;
+    }
+  }
+  if(count > 0) { steer = steer.div(new Vector(count, count)); }
+  if(steer.mag() > 0) { // Steering = Desired - Velocity
+    steer = steer
+      .normalise()
+      .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+      .sub(this.velocity)
+      .limit(this.parent.maxForce);
+  }
+  return steer;
+};
+///////////////////////////////////////////
 Boid.prototype.alignment = function () { // Alignment rule: steer toward average heading of local flockmates
   var sum = new Vector(0, 0); // Average velocity
   var count = 0;  // number of local flockmates
@@ -205,7 +233,7 @@ var BoidsCanvas = function(canvas, options) {
   this.options = {
     background: (options.background !== undefined) ? options.background : '#1a252f',
     speed: this.setSpeed(options.speed),
-    tablesSpeed: 15,
+    tablesSpeed:7,
     separationVar: 1.5,
     interactive: (options.interactive !== undefined) ? options.interactive : true,
     mixedSizes: (options.mixedSizes !== undefined) ? options.mixedSizes : true,
@@ -311,9 +339,9 @@ BoidsCanvas.prototype.update = function() {
   else if( secondsFromStart >  8 && this.options.separationVar < 2.5){ this.options.separationVar = 2.5; }
   else if( secondsFromStart >  5 && this.options.separationVar < 2.0){ this.options.separationVar = 2.0; }
   if(false){}
-  else if( secondsFromStart > 14 && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
-  else if( secondsFromStart > 11 && this.options.tablesSpeed > 2){ this.options.tablesSpeed = 2; }
-  else if( secondsFromStart >  8 && this.options.tablesSpeed > 7){ this.options.tablesSpeed = 7; }
+  else if( secondsFromStart > 12 && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
+  else if( secondsFromStart > 10 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 2; }
+  else if( secondsFromStart > 8 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 7; }
   requestAnimationFrame(this.update.bind(this));
 };
 BoidsCanvas.prototype.setSpeed = (speed) => ({ slow: 1, medium: 2, fast: 3 }[speed]);
