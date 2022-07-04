@@ -25,25 +25,17 @@ Boid.prototype.draw = function () {
 };
 // Reynold's rules
 Boid.prototype.update = function () {
-  var v1 = this.cohesion();
-  var v2 = this.separation();
-  var v3 = this.alignment();
-  var v4 = this.interactivity();
-  var v5 = this.borders();
-  // Weight rules to get best behaviour
-  v1 = v1.mul(new Vector(1, 1));
-  v2 = v2.mul(new Vector(this.parent.options.separationVar, this.parent.options.separationVar));
-  v3 = v3.mul(new Vector(1, 1));
-  v4 = v4.mul(new Vector(1.8, 1.8));
-  v5 = v5.mul(new Vector(1.0, 1.0));
+  var v1 = this.cohesion()     .mul(new Vector(1, 1));
+  var v2 = this.separation()   .mul(new Vector(this.parent.options.separationVar, this.parent.options.separationVar));
+  var v3 = this.alignment()    .mul(new Vector(1, 1));
+  var v4 = this.interactivity().mul(new Vector(1.8, 1.8));
+  var v5 = this.borders()      .mul(new Vector(5.0, 5.0));
   this.applyForce(v1);
   this.applyForce(v2);
   this.applyForce(v3);
   this.applyForce(v4);
   this.applyForce(v5);
-  this.velocity = this.velocity
-    .add(this.acceleration)
-    .limit(this.parent.options.speed);
+  this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
   this.position = this.position.add(this.velocity);
   this.acceleration = this.acceleration.mul(new Vector(0, 0));
 };
@@ -82,9 +74,7 @@ Boid.prototype.separation = function () { // Separation rule: steer to avoid cro
       count++;
     }
   }
-  if(count > 0) {
-    steer = steer.div(new Vector(count, count));
-  }
+  if(count > 0) { steer = steer.div(new Vector(count, count)); }
   if(steer.mag() > 0) { // Steering = Desired - Velocity
     steer = steer
       .normalise()
@@ -144,6 +134,66 @@ Boid.prototype.applyForce = function(force) {
   this.acceleration = this.acceleration.add(force.div(new Vector(this.size, this.size)));
 };
 //-----------------------------------------------------------------------------------------------
+var Table = function(parent, position) {
+  this.position     = new Vector(position.x, position.y);
+  this.velocity     = new Vector(0, 0);
+  this.acceleration = new Vector(0, 0);
+  this.size         = 1;
+  this.colour       = '#999';
+  this.parent       = parent;
+};
+Table.prototype.draw = function () {
+  this.parent.ctx.beginPath();
+  this.parent.ctx.fillStyle = this.colour;
+  this.parent.ctx.globalAlpha = 0.4;
+  this.parent.ctx.arc(this.position.x, this.position.y, this.size * this.parent.tableRadius, 0, 2 * Math.PI);
+  this.parent.ctx.fill();
+};
+Table.prototype.update = function () {
+  var v2 = this.separation().mul(new Vector(20.0, 20.0));
+  var v5 = this.borders()   .mul(new Vector(8.0, 8.0));
+  this.applyForce(v2);
+  this.applyForce(v5);
+  this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.tablesSpeed);
+  this.position = this.position.add(this.velocity);
+  this.acceleration = this.acceleration.mul(new Vector(0, 0));
+};
+Table.prototype.separation = function () { // Separation rule: steer to avoid crowding local flockmates
+  var steer = new Vector(0, 0);
+  var count = 0;
+  for(var i = 0; i < this.parent.tables.length; i++) {
+    var d = this.position.dist(this.parent.tables[i].position) - (this.size);
+    if(d > 0 && d < this.parent.tableSeparationDist) {
+      var diff = this.position
+        .sub(this.parent.tables[i].position)
+        .normalise()
+        .div(new Vector(d, d));
+      steer = steer.add(diff);
+      count++;
+    }
+  }
+  if(count > 0) { steer = steer.div(new Vector(count, count)); }
+  if(steer.mag() > 0) { // Steering = Desired - Velocity
+    steer = steer
+      .normalise()
+      .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+      .sub(this.velocity)
+      .limit(this.parent.maxForce);
+  }
+  return steer;
+};
+Table.prototype.borders = function() {
+  let x=0, y=0, factorX = 0.05, factorY = 0.1;
+  if(this.position.x < this.parent.canvas.width  * factorX    ) { x =  1; };
+  if(this.position.x > this.parent.canvas.width  * (1-factorX)) { x = -1; };
+  if(this.position.y < this.parent.canvas.height * factorY    ) { y =  1; };
+  if(this.position.y > this.parent.canvas.height * (1-factorY)) { y = -1; };
+  return new Vector(x, y);
+};
+Table.prototype.applyForce = function(force) {
+  this.acceleration = this.acceleration.add(force.div(new Vector(this.size, this.size)));
+};
+//-----------------------------------------------------------------------------------------------
 var BoidsCanvas = function(canvas, options) {
   this.canvasDiv = canvas;
   this.canvasDiv.size = {
@@ -155,6 +205,7 @@ var BoidsCanvas = function(canvas, options) {
   this.options = {
     background: (options.background !== undefined) ? options.background : '#1a252f',
     speed: this.setSpeed(options.speed),
+    tablesSpeed: 15,
     separationVar: 1.5,
     interactive: (options.interactive !== undefined) ? options.interactive : true,
     mixedSizes: (options.mixedSizes !== undefined) ? options.mixedSizes : true,
@@ -165,6 +216,8 @@ var BoidsCanvas = function(canvas, options) {
   this.maxForce = 0.04;
   this.separationDist = 80;
   this.boidRadius = 3;  //size of the smallest boid
+  this.tableRadius = 10;
+  this.tableSeparationDist = 80;
   this.init();
 };
 BoidsCanvas.prototype.init = function() {
@@ -197,20 +250,6 @@ BoidsCanvas.prototype.init = function() {
   });
   this.initialiseBoids();
   this.startTime = Date.now() / 1000;
-  setInterval( () => {
-    let secondsFromStart = Date.now() / 1000 - this.startTime;
-    let batchSize = 0 + Math.random() * 10 * Math.max(0, (0.9+Math.cos( 4 * secondsFromStart )));
-    for(let i=0; i<batchSize; i++){ if(this.boidsPre.length>0){ this.boids.push( this.boidsPre.pop() ); } }
-    if(false){}
-    else if( secondsFromStart > 26 && this.options.separationVar < 7.0){ this.options.separationVar = 7.0; }
-    else if( secondsFromStart > 23 && this.options.separationVar < 6.0){ this.options.separationVar = 6.0; }
-    else if( secondsFromStart > 20 && this.options.separationVar < 5.0){ this.options.separationVar = 5.0; }
-    else if( secondsFromStart > 17 && this.options.separationVar < 4.0){ this.options.separationVar = 4.0; }
-    else if( secondsFromStart > 14 && this.options.separationVar < 3.5){ this.options.separationVar = 3.5; }
-    else if( secondsFromStart > 11 && this.options.separationVar < 3.0){ this.options.separationVar = 3.0; }
-    else if( secondsFromStart >  8 && this.options.separationVar < 2.5){ this.options.separationVar = 2.5; }
-    else if( secondsFromStart >  5 && this.options.separationVar < 2.0){ this.options.separationVar = 2.0; }
-  }, 70);
   this.canvas.addEventListener('mousemove', function (e) {
     this.mousePos = new Vector(e.clientX - this.canvas.offsetLeft,
                                e.clientY - this.canvas.offsetTop);
@@ -223,7 +262,8 @@ BoidsCanvas.prototype.initialiseBoids = function() {
   this.boids = [];
   this.boidsPre = [];
   let doorPixels = this.canvas.height * 0.20;
-  for(var i = 0; i < 1000; i++) {
+  this.totalNumOfPeope = 1500;
+  for(var i = 0; i < this.totalNumOfPeope; i++) {
     var position = new Vector(Math.floor(this.canvas.width-10+Math.random()*10),
                               Math.floor((this.canvas.height-doorPixels)/2+Math.random()*doorPixels));
     var max_velocity = 5;
@@ -234,6 +274,18 @@ BoidsCanvas.prototype.initialiseBoids = function() {
     var colourIdx = Math.floor(Math.random()*(this.options.boidColours.length-1+1));
     this.boidsPre.push(new Boid(this, position, velocity, size, this.options.boidColours[colourIdx]));
   }
+  this.tablesOf5 = 6 - this.totalNumOfPeope % 6;
+  this.tablesOf6 = Math.ceil(this.totalNumOfPeope / 6) - this.tablesOf5;
+  this.tablesAll = this.tablesOf5 + this.tablesOf6
+  this.tables = [];
+  this.tablesPre = [];
+  for(let i = 0; i < this.tablesAll; i++){
+    let position = new Vector(
+      Math.random()*this.canvas.width  * 0.80 + this.canvas.width  * 0.10,
+      Math.random()*this.canvas.height * 0.80 + this.canvas.height * 0.10
+    );
+    this.tablesPre.push(new Table(this, position));
+  }
 };
 BoidsCanvas.prototype.update = function() {
   this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -242,6 +294,26 @@ BoidsCanvas.prototype.update = function() {
     this.boids[i].update();
     this.boids[i].draw();
   }
+  for (var i = 0; i < this.tables.length; i++) {
+    this.tables[i].update();
+    this.tables[i].draw();
+  }
+  let secondsFromStart = Date.now() / 1000 - this.startTime;
+  let batchSize = 0 + Math.random() * 3 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
+  for(let i=0; i<batchSize; i++){ if(this.boidsPre.length>0){ this.boids.push( this.boidsPre.pop() ); } }
+
+  let batchTablesSize = secondsFromStart > 5 ? Math.random() * 2 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart ))) : 0;
+  for(let i=0; i<batchTablesSize; i++){ if(this.tablesPre.length>0){ this.tables.push( this.tablesPre.pop() ); } }
+
+  if(false){}
+  else if( secondsFromStart > 14 && this.options.separationVar < 3.5){ this.options.separationVar = 4.5; }
+  else if( secondsFromStart > 11 && this.options.separationVar < 3.0){ this.options.separationVar = 3.0; }
+  else if( secondsFromStart >  8 && this.options.separationVar < 2.5){ this.options.separationVar = 2.5; }
+  else if( secondsFromStart >  5 && this.options.separationVar < 2.0){ this.options.separationVar = 2.0; }
+  if(false){}
+  else if( secondsFromStart > 14 && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
+  else if( secondsFromStart > 11 && this.options.tablesSpeed > 2){ this.options.tablesSpeed = 2; }
+  else if( secondsFromStart >  8 && this.options.tablesSpeed > 7){ this.options.tablesSpeed = 7; }
   requestAnimationFrame(this.update.bind(this));
 };
 BoidsCanvas.prototype.setSpeed = (speed) => ({ slow: 1, medium: 2, fast: 3 }[speed]);
