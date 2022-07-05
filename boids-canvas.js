@@ -285,12 +285,21 @@ BoidsCanvas.prototype.init = function() {
   this.canvas.addEventListener('mouseleave', function (e) { this.mousePos = undefined; }.bind(this));
   requestAnimationFrame(this.update.bind(this));
 };
-// Initialise boids according to options
+BoidsCanvas.prototype.shuffle = function (array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
 BoidsCanvas.prototype.initialiseBoids = function() {
   this.boids = [];
   this.boidsPre = [];
   let doorPixels = this.canvas.height * 0.20;
   this.totalNumOfPeope = 1500;
+  this.shuffleIndexes = (howMany) => {
+    let arr = Array.from(Array(howMany).keys());
+    this.shuffle(arr);
+  }
   for(var i = 0; i < this.totalNumOfPeope; i++) {
     var position = new Vector(Math.floor(this.canvas.width-10+Math.random()*10),
                               Math.floor((this.canvas.height-doorPixels)/2+Math.random()*doorPixels));
@@ -327,11 +336,14 @@ BoidsCanvas.prototype.update = function() {
     this.tables[i].draw();
   }
   let secondsFromStart = Date.now() / 1000 - this.startTime;
-  let batchSize = 0 + Math.random() * 3 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
-  for(let i=0; i<batchSize; i++){ if(this.boidsPre.length>0){ this.boids.push( this.boidsPre.pop() ); } }
-
-  let batchTablesSize = secondsFromStart > 5 ? Math.random() * 2 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart ))) : 0;
-  for(let i=0; i<batchTablesSize; i++){ if(this.tablesPre.length>0){ this.tables.push( this.tablesPre.pop() ); } }
+  if(this.boidsPre.length>0){
+    let batchSize = 0 + Math.random() * 3 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
+    for(let i=0; i<batchSize; i++){ if(this.boidsPre.length>0){ this.boids.push( this.boidsPre.pop() ); } }
+  }
+  if(this.tablesPre.length>0 && secondsFromStart > 8){
+    let batchTablesSize = Math.random() * 2 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
+    for(let i=0; i<batchTablesSize; i++){ if(this.tablesPre.length>0){ this.tables.push( this.tablesPre.pop() ); } }
+  }
 
   if(false){}
   else if( secondsFromStart > 14 && this.options.separationVar < 3.5){ this.options.separationVar = 4.5; }
@@ -339,9 +351,12 @@ BoidsCanvas.prototype.update = function() {
   else if( secondsFromStart >  8 && this.options.separationVar < 2.5){ this.options.separationVar = 2.5; }
   else if( secondsFromStart >  5 && this.options.separationVar < 2.0){ this.options.separationVar = 2.0; }
   if(false){}
-  else if( secondsFromStart > 12 && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
-  else if( secondsFromStart > 10 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 2; }
-  else if( secondsFromStart > 8 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 7; }
+  else if( secondsFromStart > 14  && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
+  else if( secondsFromStart > 12 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
+  else if( secondsFromStart > 10 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
+  // now assign people to tables randomly
+  // pigeon hole principle, assign random people to tables in sequence until all are assigned.
+
   requestAnimationFrame(this.update.bind(this));
 };
 BoidsCanvas.prototype.setSpeed = (speed) => ({ slow: 1, medium: 2, fast: 3 }[speed]);
