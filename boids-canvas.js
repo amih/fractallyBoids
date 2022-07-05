@@ -285,21 +285,23 @@ BoidsCanvas.prototype.init = function() {
   this.canvas.addEventListener('mouseleave', function (e) { this.mousePos = undefined; }.bind(this));
   requestAnimationFrame(this.update.bind(this));
 };
-BoidsCanvas.prototype.shuffle = function (array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+BoidsCanvas.prototype.shuffleIndexes = (howMany) => {
+  let shuffle = function (array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
   }
+  let arr = Array.from(Array(howMany).keys()); // [ 1 : howMany ]
+  shuffle(arr);
+  return arr;
 }
 BoidsCanvas.prototype.initialiseBoids = function() {
   this.boids = [];
   this.boidsPre = [];
   let doorPixels = this.canvas.height * 0.20;
-  this.totalNumOfPeope = 1500;
-  this.shuffleIndexes = (howMany) => {
-    let arr = Array.from(Array(howMany).keys());
-    this.shuffle(arr);
-  }
+  this.totalNumOfPeope = 1200;
+  this.shuffledBoids = this.shuffleIndexes(this.totalNumOfPeope);
   for(var i = 0; i < this.totalNumOfPeope; i++) {
     var position = new Vector(Math.floor(this.canvas.width-10+Math.random()*10),
                               Math.floor((this.canvas.height-doorPixels)/2+Math.random()*doorPixels));
@@ -337,11 +339,11 @@ BoidsCanvas.prototype.update = function() {
   }
   let secondsFromStart = Date.now() / 1000 - this.startTime;
   if(this.boidsPre.length>0){
-    let batchSize = 0 + Math.random() * 3 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
+    let batchSize = 0 + Math.random() * 7 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
     for(let i=0; i<batchSize; i++){ if(this.boidsPre.length>0){ this.boids.push( this.boidsPre.pop() ); } }
   }
   if(this.tablesPre.length>0 && secondsFromStart > 8){
-    let batchTablesSize = Math.random() * 2 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
+    let batchTablesSize = Math.random() * 3 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
     for(let i=0; i<batchTablesSize; i++){ if(this.tablesPre.length>0){ this.tables.push( this.tablesPre.pop() ); } }
   }
 
@@ -351,12 +353,30 @@ BoidsCanvas.prototype.update = function() {
   else if( secondsFromStart >  8 && this.options.separationVar < 2.5){ this.options.separationVar = 2.5; }
   else if( secondsFromStart >  5 && this.options.separationVar < 2.0){ this.options.separationVar = 2.0; }
   if(false){}
-  else if( secondsFromStart > 14  && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
+  else if( secondsFromStart > 14 && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
   else if( secondsFromStart > 12 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
   else if( secondsFromStart > 10 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
-  // now assign people to tables randomly
-  // pigeon hole principle, assign random people to tables in sequence until all are assigned.
-
+  // assigning to tables only after all entered the conference
+  if( secondsFromStart > 16 && this.shuffledBoids.length > 0 ){
+    let tableNumber = 0;
+    let peopleInCurrentTable = 0;
+    for(let i = 0; i < this.boids.length; i++){
+      this.boids[ this.shuffledBoids[i] ].assignedTable = tableNumber;
+      peopleInCurrentTable++;
+      if(tableNumber < this.tablesOf6){
+        if( peopleInCurrentTable == 6 ){
+          tableNumber++;
+          peopleInCurrentTable = 0;
+        }
+      }else{
+        if( peopleInCurrentTable == 5 ){
+          tableNumber++;
+          peopleInCurrentTable = 0;
+        }
+      }
+    }
+    this.shuffledBoids = []; // this makes sure we only do this once
+  }
   requestAnimationFrame(this.update.bind(this));
 };
 BoidsCanvas.prototype.setSpeed = (speed) => ({ slow: 1, medium: 2, fast: 3 }[speed]);
