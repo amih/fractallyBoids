@@ -44,28 +44,33 @@ Boid.prototype.update = function () {
     this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
     this.position = this.position.add(this.velocity);
     this.acceleration = this.acceleration.mul(new Vector(0, 0));
-  }else{
-    // focusOnTables --> 1, 2, 3
-    // var v2 = this.separation()     .mul(new Vector(this.parent.options.separationVar/3, this.parent.options.separationVar/3));
-    var v2 = this.separation()     .mul(new Vector(this.parent.options.separationVar*4, this.parent.options.separationVar*4));
-    var v2a= this.avoidTables().mul(new Vector(3,3));
+  }else if( this.parent.focusOnTables == 1 || (this.parent.focusOnTables == 2 && typeof this.fractallyLevel === 'undefined')){
+    var v2 = this.separation() .mul(new Vector(this.parent.options.separationVar*4, this.parent.options.separationVar*4));
+    var v2a= this.avoidTables().mul(new Vector(10, 10));
     var v6 = this.assignedToTable().mul(new Vector(25, 25));
     this.applyForce(v2);
     this.applyForce(v2a);
     this.applyForce(v6);
-    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);// /( 3 * this.parent.focusOnTables ));
+    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
     // reduce speed if close to the assigned table!
     var d = this.position.dist(this.parent.tables[this.assignedTable].position);
     if     (d< 20){ this.velocity = this.velocity.div(new Vector(2, 2)); }
     else if(d<100){ this.velocity = this.velocity.div(new Vector(1.2,1.2)); }
     this.position = this.position.add(this.velocity);
-    this.acceleration = this.acceleration.mul(new Vector(0, 0));  
+    this.acceleration = this.acceleration.mul(new Vector(0, 0));
+  }else if( this.parent.focusOnTables == 2 && typeof this.fractallyLevel !== 'undefined' ){
+    // move to column next to the table if consensus reached for table
+    var v6 = this.columnNextToTable().mul(new Vector(12, 12));
+    this.applyForce(v6);
+    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed).div(new Vector(2,2));
+    this.position = this.position.add(this.velocity);
+    this.acceleration = this.acceleration.mul(new Vector(0, 0));
   }
 };
 // BOIDS FLOCKING RULES
 Boid.prototype.cohesion = function () { // Cohesion rule: steer towards average position of local flockmates
   var sum = new Vector(0, 0); // Average flockmate position
-  var count = 0;  // number of local flockmates
+  var count = 0; // number of local flockmates
   for(var i = 0; i < this.parent.boids.length; i++) {
     var d = this.position.dist(this.parent.boids[i].position);
     if(d > 0 && d < this.parent.visibleRadius) {
@@ -155,9 +160,29 @@ Boid.prototype.assignedToTable = function () {
   return steer;
 };
 ///////////////////////////////////////////
+Boid.prototype.columnNextToTable = function () {
+  var steer = new Vector(0, 0);
+  if( this.assignedTable !== undefined ){
+    // TODO: each boid should be attracted to a column near the table
+    var diff = this.parent.tables[this.assignedTable].position
+      .add(new Vector(15, (this.fractallyLevel-3.5)*8))
+      .sub(this.position)
+      .normalise();
+    steer = steer.add(diff);
+    if(steer.mag() > 0) { // Steering = Desired - Velocity
+      steer = steer
+        .normalise()
+        .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+        .sub(this.velocity)
+        .limit(this.parent.maxForce);
+    }
+  }
+  return steer;
+};
+///////////////////////////////////////////
 Boid.prototype.alignment = function () { // Alignment rule: steer toward average heading of local flockmates
   var sum = new Vector(0, 0); // Average velocity
-  var count = 0;  // number of local flockmates
+  var count = 0; // number of local flockmates
   for(var i = 0; i < this.parent.boids.length; i++) {
     var d = this.position.dist(this.parent.boids[i].position);
     if(d > 0 && d < this.parent.visibleRadius) {
@@ -286,7 +311,7 @@ var BoidsCanvas = function(canvas, options) {
   this.visibleRadius = 150;
   this.maxForce = 0.04;
   this.separationDist = 80;
-  this.boidRadius = 3;  //size of the smallest boid
+  this.boidRadius = 3; //size of the smallest boid
   this.tableRadius = 10;
   this.tableSeparationDist = 80;
   this.init();
@@ -343,6 +368,7 @@ BoidsCanvas.prototype.initialiseBoids = function() {
   this.boids = [];
   this.boidsPre = [];
   this.focusOnTables = 0;
+  this.lastFractallyLevelAssignedToBoid = -1;
   let doorPixels = this.canvas.height * 0.20;
   this.totalNumOfPeope = 1105;
   this.shuffledBoids = this.shuffleIndexes(this.totalNumOfPeope);
@@ -395,6 +421,18 @@ BoidsCanvas.prototype.update = function() {
     let batchTablesSize = Math.random() * 9 * Math.max(.5, (1+Math.cos( 2 * secondsFromStart )));
     for(let i=0; i<batchTablesSize; i++){ if(this.tablesPre.length>0){ this.tables.push( this.tablesPre.pop() ); } }
   }
+  // randomly assign fractallyLevel - TODO - make this a permutation in each table!
+  // fractallyLevel
+  if(secondsFromStart > 40 && this.lastFractallyLevelAssignedToBoid < this.boids.length){
+    let fractallyLevelBatch = Math.random() * 3 * Math.max(.5, (1+Math.cos( 2 * secondsFromStart )));
+    for(let i=0; i<fractallyLevelBatch; i++){
+      this.lastFractallyLevelAssignedToBoid++;
+      if( this.lastFractallyLevelAssignedToBoid < this.boids.length-1 ){
+        this.boids[ this.lastFractallyLevelAssignedToBoid ].fractallyLevel = Math.floor( Math.random() * 6 + 1 );
+      }
+    }
+  }
+
 
   if(false){}
   else if( secondsFromStart > 14 && this.options.separationVar < 4.5){ this.options.separationVar = 4.5; }
@@ -406,12 +444,8 @@ BoidsCanvas.prototype.update = function() {
   else if( secondsFromStart > 14 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
   else if( secondsFromStart > 12 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
   if(false){}
-  // else if( secondsFromStart > 48 && this.focusOnTables == 4.0){ this.focusOnTables =10.0; }
-  // else if( secondsFromStart > 44 && this.focusOnTables == 2.0){ this.focusOnTables = 4.0; }
-  // else if( secondsFromStart > 38 && this.focusOnTables == 1.0){ this.focusOnTables = 2.0; }
-  // else if( secondsFromStart > 32 && this.focusOnTables == 0.5){ this.focusOnTables = 1.0; }
-  // else if( secondsFromStart > 26 && this.focusOnTables == 0.2){ this.focusOnTables = 0.5; }
-  else if( secondsFromStart > 20 && this.focusOnTables == 0  ){ this.focusOnTables = 0.2; }
+  else if( secondsFromStart > 40 && this.focusOnTables == 1  ){ this.focusOnTables = 2; }
+  else if( secondsFromStart > 20 && this.focusOnTables == 0  ){ this.focusOnTables = 1; }
   // assigning to tables only after all entered the conference
   if( secondsFromStart > 16 && this.shuffledBoids.length > 0 ){
     let tableNumber = 0;
