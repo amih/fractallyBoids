@@ -17,22 +17,24 @@ var Boid = function(parent, position, velocity, size, colour) {
   this.parent       = parent;
 };
 Boid.prototype.draw = function () {
-  this.parent.ctx.beginPath();
-  this.parent.ctx.fillStyle = this.colour;
-  this.parent.ctx.globalAlpha = 0.7;
-  this.parent.ctx.arc(this.position.x, this.position.y, this.parent.boidRadius * this.size, 0, 2 * Math.PI);
-  this.parent.ctx.fill();
+  if(!this.hide){
+    this.parent.ctx.beginPath();
+    this.parent.ctx.fillStyle = this.colour;
+    this.parent.ctx.globalAlpha = 0.7;
+    this.parent.ctx.arc(this.position.x, this.position.y, this.parent.boidRadius * this.size, 0, 2 * Math.PI);
+    this.parent.ctx.fill();
+  }
 };
 // Reynold's rules
 Boid.prototype.update = function () {
   // if( this.assignedTable === undefined ){
-  if( this.parent.focusOnTables == 0 ){
+  if( this.parent.scene == 0 ){
     var v1 = this.cohesion()     .mul(new Vector(1, 1));
     var v2 = this.separation()   .mul(new Vector(this.parent.options.separationVar, this.parent.options.separationVar));
     var v2a= this.avoidTables()  .mul(new Vector(10, 10));
     var v3 = this.alignment()    .mul(new Vector(1, 1));
     var v4 = this.interactivity().mul(new Vector(1.8, 1.8));
-    var v5 = this.borders()      .mul(new Vector(5.0, 5.0));
+    var v5 = this.borders()      .mul(new Vector(3.0, 3.0));
     var v6 = this.assignedToTable().mul(new Vector(25.0, 25.0));
     this.applyForce(v1);
     this.applyForce(v2);
@@ -44,7 +46,7 @@ Boid.prototype.update = function () {
     this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
     this.position = this.position.add(this.velocity);
     this.acceleration = this.acceleration.mul(new Vector(0, 0));
-  }else if( this.parent.focusOnTables == 1 || (this.parent.focusOnTables == 2 && typeof this.fractallyLevel === 'undefined')){
+  }else if( this.parent.scene == 1 || (this.parent.scene == 2 && typeof this.fractallyLevel === 'undefined')){
     var v2 = this.separation() .mul(new Vector(this.parent.options.separationVar*4, this.parent.options.separationVar*4));
     var v2a= this.avoidTables().mul(new Vector(10, 10));
     var v6 = this.assignedToTable().mul(new Vector(25, 25));
@@ -58,11 +60,27 @@ Boid.prototype.update = function () {
     else if(d<100){ this.velocity = this.velocity.div(new Vector(1.2,1.2)); }
     this.position = this.position.add(this.velocity);
     this.acceleration = this.acceleration.mul(new Vector(0, 0));
-  }else if( this.parent.focusOnTables == 2 && typeof this.fractallyLevel !== 'undefined' ){
+  }else if( this.parent.scene == 2 && typeof this.fractallyLevel !== 'undefined' ){
     // move to column next to the table if consensus reached for table
     var v6 = this.columnNextToTable().mul(new Vector(12, 12));
     this.applyForce(v6);
     this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed).div(new Vector(2,2));
+    this.position = this.position.add(this.velocity);
+    this.acceleration = this.acceleration.mul(new Vector(0, 0));
+  }else if( this.parent.scene == 3 ){
+    // var v1 = this.cohesion()     .mul(new Vector(1, 1));
+    // var v2 = this.separation()   .mul(new Vector(this.parent.options.separationVar, this.parent.options.separationVar));
+    // var v3 = this.alignment()    .mul(new Vector(1, 1));
+    // var v4 = this.interactivity().mul(new Vector(1.8, 1.8));
+    var v5 = this.borders()      .mul(new Vector(2.0, 2.0));
+    var v6 = this.assignedToDoor().mul(new Vector(25.0, 25.0));
+    // this.applyForce(v1);
+    // this.applyForce(v2);
+    // this.applyForce(v3);
+    // this.applyForce(v4);
+    this.applyForce(v5);
+    this.applyForce(v6);
+    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
     this.position = this.position.add(this.velocity);
     this.acceleration = this.acceleration.mul(new Vector(0, 0));
   }
@@ -159,6 +177,29 @@ Boid.prototype.assignedToTable = function () {
   }
   return steer;
 };
+Boid.prototype.assignedToDoor = function () {
+  var steer = new Vector(0, 0);
+  if( this.toDoor !== undefined ){
+    var d = this.position.dist(this.toDoor);
+    if(d > 15) {
+      var diff = this.toDoor
+        .sub(this.position)
+        .normalise()
+        .div(new Vector(d, d));
+      steer = steer.add(diff);
+    }else{
+      this.hide = true;
+    }
+    if(steer.mag() > 0) { // Steering = Desired - Velocity
+      steer = steer
+        .normalise()
+        .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+        .sub(this.velocity)
+        .limit(this.parent.maxForce);
+    }
+  }
+  return steer;
+};
 ///////////////////////////////////////////
 Boid.prototype.columnNextToTable = function () {
   var steer = new Vector(0, 0);
@@ -212,10 +253,10 @@ Boid.prototype.interactivity = function () {
 };
 Boid.prototype.borders = function() {
   let x=0, y=0;
-  if(this.position.x < this.parent.canvas.width  * 0.005) { x =  1; };
-  if(this.position.x > this.parent.canvas.width  * 0.995) { x = -1; };
-  if(this.position.y < this.parent.canvas.height * 0.010) { y =  1; };
-  if(this.position.y > this.parent.canvas.height * 0.990) { y = -1; };
+  if(this.position.x < this.parent.canvas.width  * 0.002) { x =  1; };
+  if(this.position.x > this.parent.canvas.width  * 0.998) { x = -1; };
+  if(this.position.y < this.parent.canvas.height * 0.004) { y =  1; };
+  if(this.position.y > this.parent.canvas.height * 0.996) { y = -1; };
   return new Vector(x, y);
 };
 Boid.prototype.seek = function(target) { // Calculate a force to apply to a boid to steer it towards a target position
@@ -246,13 +287,16 @@ Table.prototype.draw = function (color) {
   this.parent.ctx.fill();
 };
 Table.prototype.update = function () {
-  var v2 = this.separation().mul(new Vector(20.0, 20.0));
-  var v5 = this.borders()   .mul(new Vector(8.0, 8.0));
-  this.applyForce(v2);
-  this.applyForce(v5);
-  this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.tablesSpeed);
-  this.position = this.position.add(this.velocity);
-  this.acceleration = this.acceleration.mul(new Vector(0, 0));
+  if( this.parent.scene != 3 ){
+    var v2 = this.separation().mul(new Vector(20.0, 20.0));
+    var v5 = this.borders()   .mul(new Vector(8.0, 8.0));
+    this.applyForce(v2);
+    this.applyForce(v5);
+    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.tablesSpeed);
+    this.position = this.position.add(this.velocity);
+    this.acceleration = this.acceleration.mul(new Vector(0, 0));
+  // }else if( this.parent.scene == 3 ){
+  }
 };
 Table.prototype.separation = function () { // Separation rule: steer to avoid crowding local flockmates
   var steer = new Vector(0, 0);
@@ -367,7 +411,7 @@ BoidsCanvas.prototype.shuffleIndexes = (howMany) => {
 BoidsCanvas.prototype.initialiseBoids = function() {
   this.boids = [];
   this.boidsPre = [];
-  this.focusOnTables = 0;
+  this.scene = 0;
   this.lastFractallyLevelAssignedToBoid = -1;
   let doorPixels = this.canvas.height * 0.20;
   this.totalNumOfPeope = 1105;
@@ -396,6 +440,25 @@ BoidsCanvas.prototype.initialiseBoids = function() {
     this.tablesPre.push(new Table(this, position));
   }
 };
+BoidsCanvas.prototype.allTablesReachConsensus =function() {
+  this.tblBoids = this.boids.reduce((acc, item) => {
+    if( typeof (acc[item.assignedTable]) === 'undefined' ){ acc[item.assignedTable] = []; }
+    acc[item.assignedTable].push(item);
+    return acc;
+  }, []);
+  for(let i=0; i<this.tblBoids.length; i++){
+    for(let j=0; j<this.tblBoids[i].length; j++){
+      this.tblBoids[i][j].fractallyLevel = 6-j; // in case of just 5 people, they are levels 2..6
+    }
+  }
+  setTimeout(()=>{
+    for(let i=0; i<this.tblBoids.length; i++){
+      for(let j=0; j<this.tblBoids[i].length; j++){
+        this.tblBoids[i][j].colour = ['#2f9cf4', '#28dbbc', '#8efb53', '#d9df33', '#ff9520', '#ce310d'][6-j];
+      }
+    }
+  }, 2000);
+}
 BoidsCanvas.prototype.update = function() {
   let secondsFromStart = Date.now() / 1000 - this.startTime;
   this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -404,13 +467,28 @@ BoidsCanvas.prototype.update = function() {
     this.boids[i].update();
     this.boids[i].draw();
   }
+  if( this.scene == 3 && !this.doorPixels){
+    this.tables = [];
+    setTimeout(()=>{
+      // everybody out except top boids!
+      this.doorPixels = this.canvas.height * 0.20;
+      for(let i=0; i<this.tblBoids.length; i++){
+        for(let j=0; j<this.tblBoids[i].length - 1; j++){
+          this.tblBoids[i][j].toDoor = new Vector(
+            Math.floor(this.canvas.width-10+Math.random()*10),
+            Math.floor((this.canvas.height-this.doorPixels)/2+Math.random()*this.doorPixels)
+          );
+        }
+      }
+    }, 1000);
+  }
   for (var i = 0; i < this.tables.length; i++) {
     this.tables[i].update();
     if( secondsFromStart > 34){
       if(i>this.tables.length-6){ this.tables[i].draw('#9B9'); }
-      else{ this.tables[i].draw(); }
+      else{ this.tables[i].draw( this.tables[i].colour ); }
     }else{
-      this.tables[i].draw();
+      this.tables[i].draw(this.tables[i].colour);
     }
   }
   if(this.boidsPre.length>0){
@@ -421,19 +499,6 @@ BoidsCanvas.prototype.update = function() {
     let batchTablesSize = Math.random() * 9 * Math.max(.5, (1+Math.cos( 2 * secondsFromStart )));
     for(let i=0; i<batchTablesSize; i++){ if(this.tablesPre.length>0){ this.tables.push( this.tablesPre.pop() ); } }
   }
-  // randomly assign fractallyLevel - TODO - make this a permutation in each table!
-  // fractallyLevel
-  if(secondsFromStart > 40 && this.lastFractallyLevelAssignedToBoid < this.boids.length){
-    let fractallyLevelBatch = Math.random() * 3 * Math.max(.5, (1+Math.cos( 2 * secondsFromStart )));
-    for(let i=0; i<fractallyLevelBatch; i++){
-      this.lastFractallyLevelAssignedToBoid++;
-      if( this.lastFractallyLevelAssignedToBoid < this.boids.length-1 ){
-        this.boids[ this.lastFractallyLevelAssignedToBoid ].fractallyLevel = Math.floor( Math.random() * 6 + 1 );
-      }
-    }
-  }
-
-
   if(false){}
   else if( secondsFromStart > 14 && this.options.separationVar < 4.5){ this.options.separationVar = 4.5; }
   else if( secondsFromStart > 11 && this.options.separationVar < 3.0){ this.options.separationVar = 3.0; }
@@ -444,8 +509,9 @@ BoidsCanvas.prototype.update = function() {
   else if( secondsFromStart > 14 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
   else if( secondsFromStart > 12 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
   if(false){}
-  else if( secondsFromStart > 40 && this.focusOnTables == 1  ){ this.focusOnTables = 2; }
-  else if( secondsFromStart > 20 && this.focusOnTables == 0  ){ this.focusOnTables = 1; }
+  else if( secondsFromStart > 40 && this.scene == 2  ){ this.scene = 3; }
+  else if( secondsFromStart > 36 && this.scene == 1  ){ this.scene = 2; this.allTablesReachConsensus(); }
+  else if( secondsFromStart > 20 && this.scene == 0  ){ this.scene = 1; }
   // assigning to tables only after all entered the conference
   if( secondsFromStart > 16 && this.shuffledBoids.length > 0 ){
     let tableNumber = 0;
