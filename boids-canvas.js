@@ -80,7 +80,7 @@ Boid.prototype.update = function () {
     // this.applyForce(v4);
     this.applyForce(v5);
     this.applyForce(v6);
-    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
+    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed*40);
     this.position = this.position.add(this.velocity);
     this.acceleration = this.acceleration.mul(new Vector(0, 0));
   }
@@ -181,21 +181,22 @@ Boid.prototype.assignedToDoor = function () {
   var steer = new Vector(0, 0);
   if( this.toDoor !== undefined ){
     var d = this.position.dist(this.toDoor);
-    if(d > 15) {
+    if(d > 15 && !this.hide) {
       var diff = this.toDoor
         .sub(this.position)
         .normalise()
         .div(new Vector(d, d));
       steer = steer.add(diff);
-    }else{
+    }
+    if(Math.abs(this.position.x - this.toDoor.x)<15){
       this.hide = true;
     }
     if(steer.mag() > 0) { // Steering = Desired - Velocity
       steer = steer
         .normalise()
-        .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+        .mul(new Vector(this.parent.options.speed*1.4, this.parent.options.speed*1.4))
         .sub(this.velocity)
-        .limit(this.parent.maxForce);
+        .limit(this.parent.maxForce*1.4);
     }
   }
   return steer;
@@ -457,7 +458,7 @@ BoidsCanvas.prototype.allTablesReachConsensus =function() {
         this.tblBoids[i][j].colour = ['#2f9cf4', '#28dbbc', '#8efb53', '#d9df33', '#ff9520', '#ce310d'][6-j];
       }
     }
-  }, 2000);
+  }, 1500);
 }
 BoidsCanvas.prototype.update = function() {
   let secondsFromStart = Date.now() / 1000 - this.startTime;
@@ -480,7 +481,7 @@ BoidsCanvas.prototype.update = function() {
           );
         }
       }
-    }, 1000);
+    }, 500);
   }
   for (var i = 0; i < this.tables.length; i++) {
     this.tables[i].update();
@@ -509,6 +510,7 @@ BoidsCanvas.prototype.update = function() {
   else if( secondsFromStart > 14 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
   else if( secondsFromStart > 12 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
   if(false){}
+  else if( secondsFromStart > 50 && this.scene == 3  ){ this.scene = 4; }
   else if( secondsFromStart > 40 && this.scene == 2  ){ this.scene = 3; }
   else if( secondsFromStart > 36 && this.scene == 1  ){ this.scene = 2; this.allTablesReachConsensus(); }
   else if( secondsFromStart > 20 && this.scene == 0  ){ this.scene = 1; }
