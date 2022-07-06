@@ -25,21 +25,42 @@ Boid.prototype.draw = function () {
 };
 // Reynold's rules
 Boid.prototype.update = function () {
-  var v1 = this.cohesion()     .mul(new Vector(1, 1));
-  var v2 = this.separation()   .mul(new Vector(this.parent.options.separationVar, this.parent.options.separationVar));
-  var v2a = this.avoidTables() .mul(new Vector(18, 18));
-  var v3 = this.alignment()    .mul(new Vector(1, 1));
-  var v4 = this.interactivity().mul(new Vector(1.8, 1.8));
-  var v5 = this.borders()      .mul(new Vector(5.0, 5.0));
-  this.applyForce(v1);
-  this.applyForce(v2);
-  this.applyForce(v2a);
-  this.applyForce(v3);
-  this.applyForce(v4);
-  this.applyForce(v5);
-  this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
-  this.position = this.position.add(this.velocity);
-  this.acceleration = this.acceleration.mul(new Vector(0, 0));
+  // if( this.assignedTable === undefined ){
+  if( this.parent.focusOnTables == 0 ){
+    var v1 = this.cohesion()     .mul(new Vector(1, 1));
+    var v2 = this.separation()   .mul(new Vector(this.parent.options.separationVar, this.parent.options.separationVar));
+    var v2a= this.avoidTables()  .mul(new Vector(10, 10));
+    var v3 = this.alignment()    .mul(new Vector(1, 1));
+    var v4 = this.interactivity().mul(new Vector(1.8, 1.8));
+    var v5 = this.borders()      .mul(new Vector(5.0, 5.0));
+    var v6 = this.assignedToTable().mul(new Vector(25.0, 25.0));
+    this.applyForce(v1);
+    this.applyForce(v2);
+    this.applyForce(v2a);
+    this.applyForce(v3);
+    this.applyForce(v4);
+    this.applyForce(v5);
+    this.applyForce(v6);
+    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
+    this.position = this.position.add(this.velocity);
+    this.acceleration = this.acceleration.mul(new Vector(0, 0));
+  }else{
+    // focusOnTables --> 1, 2, 3
+    // var v2 = this.separation()     .mul(new Vector(this.parent.options.separationVar/3, this.parent.options.separationVar/3));
+    var v2 = this.separation()     .mul(new Vector(this.parent.options.separationVar*4, this.parent.options.separationVar*4));
+    var v2a= this.avoidTables().mul(new Vector(3,3));
+    var v6 = this.assignedToTable().mul(new Vector(25, 25));
+    this.applyForce(v2);
+    this.applyForce(v2a);
+    this.applyForce(v6);
+    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);// /( 3 * this.parent.focusOnTables ));
+    // reduce speed if close to the assigned table!
+    var d = this.position.dist(this.parent.tables[this.assignedTable].position);
+    if     (d< 20){ this.velocity = this.velocity.div(new Vector(2, 2)); }
+    else if(d<100){ this.velocity = this.velocity.div(new Vector(1.2,1.2)); }
+    this.position = this.position.add(this.velocity);
+    this.acceleration = this.acceleration.mul(new Vector(0, 0));  
+  }
 };
 // BOIDS FLOCKING RULES
 Boid.prototype.cohesion = function () { // Cohesion rule: steer towards average position of local flockmates
@@ -112,6 +133,28 @@ Boid.prototype.avoidTables = function () {
   return steer;
 };
 ///////////////////////////////////////////
+Boid.prototype.assignedToTable = function () {
+  var steer = new Vector(0, 0);
+  if( this.assignedTable !== undefined ){
+    var d = this.position.dist(this.parent.tables[this.assignedTable].position);
+    if(d > 15) {
+      var diff = this.parent.tables[this.assignedTable].position
+        .sub(this.position)
+        .normalise()
+        .div(new Vector(d, d));
+      steer = steer.add(diff);
+    }
+    if(steer.mag() > 0) { // Steering = Desired - Velocity
+      steer = steer
+        .normalise()
+        .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+        .sub(this.velocity)
+        .limit(this.parent.maxForce);
+    }
+  }
+  return steer;
+};
+///////////////////////////////////////////
 Boid.prototype.alignment = function () { // Alignment rule: steer toward average heading of local flockmates
   var sum = new Vector(0, 0); // Average velocity
   var count = 0;  // number of local flockmates
@@ -170,9 +213,9 @@ var Table = function(parent, position) {
   this.colour       = '#999';
   this.parent       = parent;
 };
-Table.prototype.draw = function () {
+Table.prototype.draw = function (color) {
   this.parent.ctx.beginPath();
-  this.parent.ctx.fillStyle = this.colour;
+  this.parent.ctx.fillStyle = typeof color === 'undefied' ? this.colour : color;
   this.parent.ctx.globalAlpha = 0.4;
   this.parent.ctx.arc(this.position.x, this.position.y, this.size * this.parent.tableRadius, 0, 2 * Math.PI);
   this.parent.ctx.fill();
@@ -211,7 +254,7 @@ Table.prototype.separation = function () { // Separation rule: steer to avoid cr
   return steer;
 };
 Table.prototype.borders = function() {
-  let x=0, y=0, factorX = 0.05, factorY = 0.1;
+  let x=0, y=0, factorX = 0.03, factorY = 0.05;
   if(this.position.x < this.parent.canvas.width  * factorX    ) { x =  1; };
   if(this.position.x > this.parent.canvas.width  * (1-factorX)) { x = -1; };
   if(this.position.y < this.parent.canvas.height * factorY    ) { y =  1; };
@@ -299,8 +342,9 @@ BoidsCanvas.prototype.shuffleIndexes = (howMany) => {
 BoidsCanvas.prototype.initialiseBoids = function() {
   this.boids = [];
   this.boidsPre = [];
+  this.focusOnTables = 0;
   let doorPixels = this.canvas.height * 0.20;
-  this.totalNumOfPeope = 1200;
+  this.totalNumOfPeope = 1105;
   this.shuffledBoids = this.shuffleIndexes(this.totalNumOfPeope);
   for(var i = 0; i < this.totalNumOfPeope; i++) {
     var position = new Vector(Math.floor(this.canvas.width-10+Math.random()*10),
@@ -313,7 +357,7 @@ BoidsCanvas.prototype.initialiseBoids = function() {
     var colourIdx = Math.floor(Math.random()*(this.options.boidColours.length-1+1));
     this.boidsPre.push(new Boid(this, position, velocity, size, this.options.boidColours[colourIdx]));
   }
-  this.tablesOf5 = 6 - this.totalNumOfPeope % 6;
+  this.tablesOf5 = this.totalNumOfPeope % 6 == 0 ? 0 : 6 - this.totalNumOfPeope % 6;
   this.tablesOf6 = Math.ceil(this.totalNumOfPeope / 6) - this.tablesOf5;
   this.tablesAll = this.tablesOf5 + this.tablesOf6
   this.tables = [];
@@ -327,6 +371,7 @@ BoidsCanvas.prototype.initialiseBoids = function() {
   }
 };
 BoidsCanvas.prototype.update = function() {
+  let secondsFromStart = Date.now() / 1000 - this.startTime;
   this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   this.ctx.globalAlpha = 1;
   for (var i = 0; i < this.boids.length; i++) {
@@ -335,27 +380,38 @@ BoidsCanvas.prototype.update = function() {
   }
   for (var i = 0; i < this.tables.length; i++) {
     this.tables[i].update();
-    this.tables[i].draw();
+    if( secondsFromStart > 34){
+      if(i>this.tables.length-6){ this.tables[i].draw('#9B9'); }
+      else{ this.tables[i].draw(); }
+    }else{
+      this.tables[i].draw();
+    }
   }
-  let secondsFromStart = Date.now() / 1000 - this.startTime;
   if(this.boidsPre.length>0){
-    let batchSize = 0 + Math.random() * 7 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
+    let batchSize = 0 + Math.random() * 9 * Math.max(0, (0.94+Math.cos( 2 * secondsFromStart )));
     for(let i=0; i<batchSize; i++){ if(this.boidsPre.length>0){ this.boids.push( this.boidsPre.pop() ); } }
   }
-  if(this.tablesPre.length>0 && secondsFromStart > 8){
-    let batchTablesSize = Math.random() * 3 * Math.max(0, (0.9+Math.cos( 2 * secondsFromStart )));
+  if(this.tablesPre.length>0 && secondsFromStart > 10){
+    let batchTablesSize = Math.random() * 9 * Math.max(.5, (1+Math.cos( 2 * secondsFromStart )));
     for(let i=0; i<batchTablesSize; i++){ if(this.tablesPre.length>0){ this.tables.push( this.tablesPre.pop() ); } }
   }
 
   if(false){}
-  else if( secondsFromStart > 14 && this.options.separationVar < 3.5){ this.options.separationVar = 4.5; }
+  else if( secondsFromStart > 14 && this.options.separationVar < 4.5){ this.options.separationVar = 4.5; }
   else if( secondsFromStart > 11 && this.options.separationVar < 3.0){ this.options.separationVar = 3.0; }
   else if( secondsFromStart >  8 && this.options.separationVar < 2.5){ this.options.separationVar = 2.5; }
   else if( secondsFromStart >  5 && this.options.separationVar < 2.0){ this.options.separationVar = 2.0; }
   if(false){}
-  else if( secondsFromStart > 14 && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
-  else if( secondsFromStart > 12 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
-  else if( secondsFromStart > 10 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
+  else if( secondsFromStart > 16 && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
+  else if( secondsFromStart > 14 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
+  else if( secondsFromStart > 12 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
+  if(false){}
+  // else if( secondsFromStart > 48 && this.focusOnTables == 4.0){ this.focusOnTables =10.0; }
+  // else if( secondsFromStart > 44 && this.focusOnTables == 2.0){ this.focusOnTables = 4.0; }
+  // else if( secondsFromStart > 38 && this.focusOnTables == 1.0){ this.focusOnTables = 2.0; }
+  // else if( secondsFromStart > 32 && this.focusOnTables == 0.5){ this.focusOnTables = 1.0; }
+  // else if( secondsFromStart > 26 && this.focusOnTables == 0.2){ this.focusOnTables = 0.5; }
+  else if( secondsFromStart > 20 && this.focusOnTables == 0  ){ this.focusOnTables = 0.2; }
   // assigning to tables only after all entered the conference
   if( secondsFromStart > 16 && this.shuffledBoids.length > 0 ){
     let tableNumber = 0;
