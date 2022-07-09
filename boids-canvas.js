@@ -170,9 +170,9 @@ Boid.prototype.assignedToTable = function () {
     if(steer.mag() > 0) { // Steering = Desired - Velocity
       steer = steer
         .normalise()
-        .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+        .mul(new Vector(this.parent.options.speed * 2, this.parent.options.speed * 2))
         .sub(this.velocity)
-        .limit(this.parent.maxForce);
+        .limit(this.parent.maxForce * 2);
     }
   }
   return steer;
@@ -510,9 +510,9 @@ BoidsCanvas.prototype.update = function() {
   else if( secondsFromStart > 14 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
   else if( secondsFromStart > 12 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
   if(false){}
-  else if( secondsFromStart > 50 && this.scene == 3  ){ this.scene = 4; }
-  else if( secondsFromStart > 40 && this.scene == 2  ){ this.scene = 3; }
-  else if( secondsFromStart > 36 && this.scene == 1  ){ this.scene = 2; this.allTablesReachConsensus(); }
+  else if( secondsFromStart > 63 && this.scene == 3  ){ this.scene = 4; }
+  else if( secondsFromStart > 42 && this.scene == 2  ){ this.scene = 3; }
+  else if( secondsFromStart > 38 && this.scene == 1  ){ this.scene = 2; this.allTablesReachConsensus(); }
   else if( secondsFromStart > 20 && this.scene == 0  ){ this.scene = 1; }
   // assigning to tables only after all entered the conference
   if( secondsFromStart > 16 && this.shuffledBoids.length > 0 ){

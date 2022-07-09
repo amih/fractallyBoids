@@ -1,3 +1,8 @@
+# watch now
+
+[less than 60 seconds animation](https://www.youtube.com/watch?v=ib8uqi0e4qQ)
+
+
 # how to set up
 
 git clone...
