@@ -5,24 +5,19 @@
     <link rel="stylesheet" type="text/css" href="style.css">
   </head>
   <body>
-    <!-- Live version hosted at: http://codepen.io/MikeC1995/pen/RWXoOe -->
     <div id="boids-canvas"></div>
-
-    <!-- ******  RESOURCES ****** -->
-    <!-- BOIDS -->
-    <!-- <script type="text/javascript" src="boids-canvas.min.js"></script> -->
     <script type="text/javascript" src="boids-canvas.js"></script>
-    <!-- INIT -->
     <script type="text/javascript">
-      var canvasDiv = document.getElementById('boids-canvas');
-      var options = {
-        background: '#ecf0f1',
-        speed: 'fast', // fast | medium | slow
-        interactive: false,
-        mixedSizes: false,
-        boidColours: ["#555", "#666", "#777", "#888", "#999", '#AAA', '#BBB', '#765', '#567'] // ["#34495e", "#e74c3c", '#2ecc71', '#9b59b6', '#f1c40f', '#1abc9c']
-      };
-      var boidsCanvas = new BoidsCanvas(canvasDiv, options);
+      let boidsCanvas = new BoidsCanvas(
+        document.getElementById('boids-canvas'),
+        {
+          background: '#ecf0f1',
+          speed: 'fast', // fast | medium | slow
+          interactive: false,
+          mixedSizes: false,
+          boidColours: ["#555", "#666", "#777", "#888", "#999", '#AAA', '#BBB', '#765', '#567']
+        }
+      );
     </script>
   </body>
 </html>
