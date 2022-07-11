@@ -1,12 +1,12 @@
 var Vector = function(x, y) { this.x = x === 'undefined' ? 0 : x; this.y = y === 'undefined' ? 0 : y; };
 Vector.prototype.add = function(v) { return new Vector(this.x + v.x, this.y + v.y); };
 Vector.prototype.sub = function(v) { return new Vector(this.x - v.x, this.y - v.y); };
-Vector.prototype.mul = function(v) { return new Vector(this.x * v.x, this.y * v.y); };
-Vector.prototype.div = function(v) { return new Vector(this.x / v.x, this.y / v.y); };
+Vector.prototype.mul = function(factor) { return new Vector(this.x * factor, this.y * factor); };
+Vector.prototype.div = function(factor) { return new Vector(this.x / factor, this.y / factor); };
 Vector.prototype.mag = function() { return Math.sqrt((this.x * this.x) + (this.y * this.y)); };
 Vector.prototype.normalise = function(v) { var mag = this.mag(); return new Vector(this.x / mag, this.y / mag); };
 Vector.prototype.dist = function(v) { return Math.sqrt((this.x - v.x)*(this.x - v.x) + (this.y - v.y)*(this.y - v.y)); };
-Vector.prototype.limit = function(limit) { return this.mag() > limit ? this.normalise().mul(new Vector(limit, limit)) : this; };
+Vector.prototype.limit = function(limit) { return this.mag() > limit ? this.normalise().mul(limit) : this; };
 //-----------------------------------------------------------------------------------------------
 var Boid = function(parent, position, velocity, size, colour) {
   this.position     = new Vector(position.x, position.y);
@@ -29,13 +29,13 @@ Boid.prototype.draw = function () {
 Boid.prototype.update = function () {
   // if( this.assignedTable === undefined ){
   if( this.parent.scene == 0 ){
-    var v1 = this.cohesion()     .mul(new Vector(1, 1));
-    var v2 = this.separation()   .mul(new Vector(this.parent.options.separationVar, this.parent.options.separationVar));
-    var v2a= this.avoidTables()  .mul(new Vector(10, 10));
-    var v3 = this.alignment()    .mul(new Vector(1, 1));
-    var v4 = this.interactivity().mul(new Vector(1.8, 1.8));
-    var v5 = this.borders()      .mul(new Vector(3.0, 3.0));
-    var v6 = this.assignedToTable().mul(new Vector(25.0, 25.0));
+    var v1 = this.cohesion()     ;//.mul(1);
+    var v2 = this.separation()   .mul(this.parent.options.separationVar);
+    var v2a= this.avoidTables()  .mul(10);
+    var v3 = this.alignment()    ;//.mul(1);
+    var v4 = this.interactivity().mul(1.8);
+    var v5 = this.borders()      .mul(3);
+    var v6 = this.assignedToTable().mul(25);
     this.applyForce(v1);
     this.applyForce(v2);
     this.applyForce(v2a);
@@ -45,44 +45,36 @@ Boid.prototype.update = function () {
     this.applyForce(v6);
     this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
     this.position = this.position.add(this.velocity);
-    this.acceleration = this.acceleration.mul(new Vector(0, 0));
+    this.acceleration = new Vector(0, 0);
   }else if( this.parent.scene == 1 || (this.parent.scene == 2 && typeof this.fractallyLevel === 'undefined')){
-    var v2 = this.separation() .mul(new Vector(this.parent.options.separationVar*4, this.parent.options.separationVar*4));
-    var v2a= this.avoidTables().mul(new Vector(10, 10));
-    var v6 = this.assignedToTable().mul(new Vector(25, 25));
+    var v2 = this.separation() .mul(this.parent.options.separationVar*4);
+    var v2a= this.avoidTables().mul(10);
+    var v6 = this.assignedToTable().mul(25);
     this.applyForce(v2);
     this.applyForce(v2a);
     this.applyForce(v6);
     this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed);
     // reduce speed if close to the assigned table!
     var d = this.position.dist(this.parent.tables[this.assignedTable].position);
-    if     (d< 20){ this.velocity = this.velocity.div(new Vector(2, 2)); }
-    else if(d<100){ this.velocity = this.velocity.div(new Vector(1.2,1.2)); }
+    if     (d< 20){ this.velocity = this.velocity.div(2); }
+    else if(d<100){ this.velocity = this.velocity.div(1.2); }
     this.position = this.position.add(this.velocity);
-    this.acceleration = this.acceleration.mul(new Vector(0, 0));
+    this.acceleration = new Vector(0, 0);
   }else if( this.parent.scene == 2 && typeof this.fractallyLevel !== 'undefined' ){
     // move to column next to the table if consensus reached for table
-    var v6 = this.columnNextToTable().mul(new Vector(12, 12));
+    var v6 = this.columnNextToTable().mul(12);
     this.applyForce(v6);
-    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed).div(new Vector(2,2));
+    this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed).div(2);
     this.position = this.position.add(this.velocity);
-    this.acceleration = this.acceleration.mul(new Vector(0, 0));
+    this.acceleration = new Vector(0, 0);
   }else if( this.parent.scene == 3 ){
-    // var v1 = this.cohesion()     .mul(new Vector(1, 1));
-    // var v2 = this.separation()   .mul(new Vector(this.parent.options.separationVar, this.parent.options.separationVar));
-    // var v3 = this.alignment()    .mul(new Vector(1, 1));
-    // var v4 = this.interactivity().mul(new Vector(1.8, 1.8));
-    var v5 = this.borders()      .mul(new Vector(2.0, 2.0));
-    var v6 = this.assignedToDoor().mul(new Vector(25.0, 25.0));
-    // this.applyForce(v1);
-    // this.applyForce(v2);
-    // this.applyForce(v3);
-    // this.applyForce(v4);
+    var v5 = this.borders()       .mul(2.0);
+    var v6 = this.assignedToDoor().mul(25.0);
     this.applyForce(v5);
     this.applyForce(v6);
     this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.speed*40);
     this.position = this.position.add(this.velocity);
-    this.acceleration = this.acceleration.mul(new Vector(0, 0));
+    this.acceleration = new Vector(0, 0);
   }
 };
 // BOIDS FLOCKING RULES
@@ -97,7 +89,7 @@ Boid.prototype.cohesion = function () { // Cohesion rule: steer towards average 
     }
   }
   if(count > 0) {
-    sum = sum.div(new Vector(count, count));
+    sum = sum.div(count);
     sum = this.seek(sum);
     return sum;
   } else {
@@ -115,16 +107,16 @@ Boid.prototype.separation = function () { // Separation rule: steer to avoid cro
       var diff = this.position
         .sub(this.parent.boids[i].position)
         .normalise()
-        .div(new Vector(d, d));
+        .div(d);
       steer = steer.add(diff);
       count++;
     }
   }
-  if(count > 0) { steer = steer.div(new Vector(count, count)); }
+  if(count > 0) { steer = steer.div(count); }
   if(steer.mag() > 0) { // Steering = Desired - Velocity
     steer = steer
       .normalise()
-      .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+      .mul(this.parent.options.speed)
       .sub(this.velocity)
       .limit(this.parent.maxForce);
   }
@@ -140,16 +132,16 @@ Boid.prototype.avoidTables = function () {
       var diff = this.position
         .sub(this.parent.tables[i].position)
         .normalise()
-        .div(new Vector(d, d));
+        .div(d);
       steer = steer.add(diff);
       count++;
     }
   }
-  if(count > 0) { steer = steer.div(new Vector(count, count)); }
+  if(count > 0) { steer = steer.div(count); }
   if(steer.mag() > 0) { // Steering = Desired - Velocity
     steer = steer
       .normalise()
-      .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+      .mul(this.parent.options.speed)
       .sub(this.velocity)
       .limit(this.parent.maxForce);
   }
@@ -164,13 +156,13 @@ Boid.prototype.assignedToTable = function () {
       var diff = this.parent.tables[this.assignedTable].position
         .sub(this.position)
         .normalise()
-        .div(new Vector(d, d));
+        .div(d);
       steer = steer.add(diff);
     }
     if(steer.mag() > 0) { // Steering = Desired - Velocity
       steer = steer
         .normalise()
-        .mul(new Vector(this.parent.options.speed * 2, this.parent.options.speed * 2))
+        .mul(this.parent.options.speed * 2)
         .sub(this.velocity)
         .limit(this.parent.maxForce * 2);
     }
@@ -185,7 +177,7 @@ Boid.prototype.assignedToDoor = function () {
       var diff = this.toDoor
         .sub(this.position)
         .normalise()
-        .div(new Vector(d, d));
+        .div(d);
       steer = steer.add(diff);
     }
     if(Math.abs(this.position.x - this.toDoor.x)<15){
@@ -194,7 +186,7 @@ Boid.prototype.assignedToDoor = function () {
     if(steer.mag() > 0) { // Steering = Desired - Velocity
       steer = steer
         .normalise()
-        .mul(new Vector(this.parent.options.speed*1.4, this.parent.options.speed*1.4))
+        .mul(this.parent.options.speed*1.4)
         .sub(this.velocity)
         .limit(this.parent.maxForce*1.4);
     }
@@ -214,7 +206,7 @@ Boid.prototype.columnNextToTable = function () {
     if(steer.mag() > 0) { // Steering = Desired - Velocity
       steer = steer
         .normalise()
-        .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+        .mul(this.parent.options.speed)
         .sub(this.velocity)
         .limit(this.parent.maxForce);
     }
@@ -234,9 +226,9 @@ Boid.prototype.alignment = function () { // Alignment rule: steer toward average
   }
   if(count > 0) {
     sum = sum
-      .div(new Vector(count, count))
+      .div(count)
       .normalise()
-      .mul(new Vector(this.parent.options.speed, this.parent.options.speed));
+      .mul(this.parent.options.speed);
     var steer = sum.sub(this.velocity);
     steer = steer.limit(this.parent.maxForce);
     return steer;
@@ -264,12 +256,12 @@ Boid.prototype.seek = function(target) { // Calculate a force to apply to a boid
   return target
     .sub(this.position)
     .normalise()
-    .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+    .mul(this.parent.options.speed)
     .sub(this.velocity)
     .limit(this.parent.maxForce);
 };
 Boid.prototype.applyForce = function(force) {
-  this.acceleration = this.acceleration.add(force.div(new Vector(this.size, this.size)));
+  this.acceleration = this.acceleration.add(force.div(this.size));
 };
 //-----------------------------------------------------------------------------------------------
 var Table = function(parent, position) {
@@ -289,13 +281,13 @@ Table.prototype.draw = function (color) {
 };
 Table.prototype.update = function () {
   if( this.parent.scene != 3 ){
-    var v2 = this.separation().mul(new Vector(20.0, 20.0));
-    var v5 = this.borders()   .mul(new Vector(8.0, 8.0));
+    var v2 = this.separation().mul(20.0);
+    var v5 = this.borders()   .mul(8.0);
     this.applyForce(v2);
     this.applyForce(v5);
     this.velocity = this.velocity.add(this.acceleration).limit(this.parent.options.tablesSpeed);
     this.position = this.position.add(this.velocity);
-    this.acceleration = this.acceleration.mul(new Vector(0, 0));
+    this.acceleration = new Vector(0, 0);
   // }else if( this.parent.scene == 3 ){
   }
 };
@@ -308,16 +300,16 @@ Table.prototype.separation = function () { // Separation rule: steer to avoid cr
       var diff = this.position
         .sub(this.parent.tables[i].position)
         .normalise()
-        .div(new Vector(d, d));
+        .div(d);
       steer = steer.add(diff);
       count++;
     }
   }
-  if(count > 0) { steer = steer.div(new Vector(count, count)); }
+  if(count > 0) { steer = steer.div(count); }
   if(steer.mag() > 0) { // Steering = Desired - Velocity
     steer = steer
       .normalise()
-      .mul(new Vector(this.parent.options.speed, this.parent.options.speed))
+      .mul(this.parent.options.speed)
       .sub(this.velocity)
       .limit(this.parent.maxForce);
   }
@@ -332,7 +324,7 @@ Table.prototype.borders = function() {
   return new Vector(x, y);
 };
 Table.prototype.applyForce = function(force) {
-  this.acceleration = this.acceleration.add(force.div(new Vector(this.size, this.size)));
+  this.acceleration = this.acceleration.add(force.div(this.size));
 };
 //-----------------------------------------------------------------------------------------------
 var BoidsCanvas = function(canvas, options) {
@@ -379,6 +371,7 @@ BoidsCanvas.prototype.init = function() {
   this.canvas = document.createElement('canvas');
   this.canvasDiv.appendChild(this.canvas);
   this.ctx = this.canvas.getContext('2d');
+  this.ctx.font = 'i48px serif';
   this.canvas.width = this.canvasDiv.size.width;
   this.canvas.height = this.canvasDiv.size.height;
   this.setStyles(this.canvasDiv, { 'position': 'relative' });
@@ -461,9 +454,11 @@ BoidsCanvas.prototype.allTablesReachConsensus =function() {
   }, 1500);
 }
 BoidsCanvas.prototype.update = function() {
-  let secondsFromStart = Date.now() / 1000 - this.startTime;
+  this.secondsFromStart = Date.now() / 1000 - this.startTime;
   this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   this.ctx.globalAlpha = 1;
+  this.ctx.fillStyle = '#000';
+  this.ctx.fillText( (this.secondsFromStart).toFixed(2), 10, 10);
   for (var i = 0; i < this.boids.length; i++) {
     this.boids[i].update();
     this.boids[i].draw();
@@ -485,7 +480,7 @@ BoidsCanvas.prototype.update = function() {
   }
   for (var i = 0; i < this.tables.length; i++) {
     this.tables[i].update();
-    if( secondsFromStart > 34){
+    if( this.secondsFromStart > 34){
       if(i>this.tables.length-6){ this.tables[i].draw('#9B9'); }
       else{ this.tables[i].draw( this.tables[i].colour ); }
     }else{
@@ -493,29 +488,29 @@ BoidsCanvas.prototype.update = function() {
     }
   }
   if(this.boidsPre.length>0){
-    let batchSize = 0 + Math.random() * 9 * Math.max(0, (0.94+Math.cos( 2 * secondsFromStart )));
+    let batchSize = 0 + Math.random() * 9 * Math.max(0, (0.94+Math.cos( 2 * this.secondsFromStart )));
     for(let i=0; i<batchSize; i++){ if(this.boidsPre.length>0){ this.boids.push( this.boidsPre.pop() ); } }
   }
-  if(this.tablesPre.length>0 && secondsFromStart > 10){
-    let batchTablesSize = Math.random() * 9 * Math.max(.5, (1+Math.cos( 2 * secondsFromStart )));
+  if(this.tablesPre.length>0 && this.secondsFromStart > 10){
+    let batchTablesSize = Math.random() * 9 * Math.max(.5, (1+Math.cos( 2 * this.secondsFromStart )));
     for(let i=0; i<batchTablesSize; i++){ if(this.tablesPre.length>0){ this.tables.push( this.tablesPre.pop() ); } }
   }
   if(false){}
-  else if( secondsFromStart > 14 && this.options.separationVar < 4.5){ this.options.separationVar = 4.5; }
-  else if( secondsFromStart > 11 && this.options.separationVar < 3.0){ this.options.separationVar = 3.0; }
-  else if( secondsFromStart >  8 && this.options.separationVar < 2.5){ this.options.separationVar = 2.5; }
-  else if( secondsFromStart >  5 && this.options.separationVar < 2.0){ this.options.separationVar = 2.0; }
+  else if( this.secondsFromStart > 14 && this.options.separationVar < 4.5){ this.options.separationVar = 4.5; }
+  else if( this.secondsFromStart > 11 && this.options.separationVar < 3.0){ this.options.separationVar = 3.0; }
+  else if( this.secondsFromStart >  8 && this.options.separationVar < 2.5){ this.options.separationVar = 2.5; }
+  else if( this.secondsFromStart >  5 && this.options.separationVar < 2.0){ this.options.separationVar = 2.0; }
   if(false){}
-  else if( secondsFromStart > 16 && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
-  else if( secondsFromStart > 14 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
-  else if( secondsFromStart > 12 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
+  else if( this.secondsFromStart > 16 && this.options.tablesSpeed > 0){ this.options.tablesSpeed = 0; }
+  else if( this.secondsFromStart > 14 && this.options.tablesSpeed > 1){ this.options.tablesSpeed = 1; }
+  else if( this.secondsFromStart > 12 && this.options.tablesSpeed > 3){ this.options.tablesSpeed = 3; }
   if(false){}
-  else if( secondsFromStart > 63 && this.scene == 3  ){ this.scene = 4; }
-  else if( secondsFromStart > 42 && this.scene == 2  ){ this.scene = 3; }
-  else if( secondsFromStart > 38 && this.scene == 1  ){ this.scene = 2; this.allTablesReachConsensus(); }
-  else if( secondsFromStart > 20 && this.scene == 0  ){ this.scene = 1; }
+  else if( this.secondsFromStart > 63 && this.scene == 3  ){ this.scene = 4; }
+  else if( this.secondsFromStart > 42 && this.scene == 2  ){ this.scene = 3; }
+  else if( this.secondsFromStart > 38 && this.scene == 1  ){ this.scene = 2; this.allTablesReachConsensus(); }
+  else if( this.secondsFromStart > 20 && this.scene == 0  ){ this.scene = 1; }
   // assigning to tables only after all entered the conference
-  if( secondsFromStart > 16 && this.shuffledBoids.length > 0 ){
+  if( this.secondsFromStart > 16 && this.shuffledBoids.length > 0 ){
     let tableNumber = 0;
     let peopleInCurrentTable = 0;
     for(let i = 0; i < this.boids.length; i++){
